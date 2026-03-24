@@ -6,6 +6,7 @@
   <title>Disaster Atlas – Real‑Time Risk Visualizer</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;0,900;1,300&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
+    /* same styles as before – omitted for brevity, copy from previous version */
     :root {
       --bg:#08090b; --surface:#0e1117; --panel:#141920; --border:#1e2730;
       --amber:#f0a500; --amber-d:#b07800; --amber-l:#ffc947; --gold:#D4AF37;
@@ -226,12 +227,16 @@
       ];
     }
     try {
-      // Using the EIA v2 API for electricity plant data (requires API key)
+      // Note: This is a sample endpoint; the actual EIA API may require different parameters.
+      // We'll add a short timeout to avoid overwhelming the API.
       const url = `https://api.eia.gov/v2/electricity/plant-data/data/?api_key=${EIA_API_KEY}&data[]=capacity&facets[plantState][]=all&frequency=annual&start=2024&end=2024&sort[0][column]=plantName&sort[0][direction]=asc&length=500`;
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (!data.response || !data.response.data) throw new Error('Invalid EIA response');
-      // Convert to our format
       return data.response.data.map(plant => ({
         lat: plant.latitude,
         lon: plant.longitude,
@@ -250,6 +255,7 @@
     const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.0&limit=30";
     try {
       const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       return data.features.map(f => ({
         lat: f.geometry.coordinates[1],
@@ -263,7 +269,7 @@
     }
   }
 
-  // ---------- Sample hurricane (NOAA feed is public but we keep a static for demo) ----------
+  // ---------- Sample hurricane ----------
   function getSampleHurricanes() {
     return [{ lat: 32.0, lon: -78.0, name: "Sample Hurricane", magnitude: 2.0 }];
   }
@@ -273,7 +279,6 @@
     const staticNodes = getStaticInfrastructure();
     const powerPlants = await fetchPowerPlants();
     const all = [...staticNodes, ...powerPlants];
-    // assign importance
     all.forEach(n => {
       if (n.type === 'city') n.importance = n.pop || 1;
       else if (n.type === 'port') n.importance = n.capacity || 50;
@@ -285,7 +290,7 @@
   // ---------- Update risk levels based on real events ----------
   async function updateRealRisks() {
     const quakes = await fetchEarthquakes();
-    const hurricanes = getSampleHurricanes(); // replace with real NOAA feed later
+    const hurricanes = getSampleHurricanes();
     // Reset risk
     riskLevel.fill(10);
     // Earthquake risk (distance-based)
@@ -507,6 +512,30 @@
     currentSelectedIdx = -1;
   }
 
+  // ---------- Rebuild Three.js points geometry ----------
+  function rebuildPointsGeometry() {
+    if (!pointsMesh) return; // guard against early call
+    const posArray = new Float32Array(positions.length * 3);
+    positions.forEach((p, i) => {
+      posArray[i*3] = p.x;
+      posArray[i*3+1] = p.y;
+      posArray[i*3+2] = p.z;
+    });
+    if (pointsGeometry) pointsGeometry.dispose();
+    pointsGeometry = new THREE.BufferGeometry();
+    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const colorArray = new Float32Array(positions.length * 3);
+    for (let i = 0; i < positions.length; i++) {
+      const col = getColorFromRisk(riskLevel[i]);
+      colorArray[i*3] = col[0];
+      colorArray[i*3+1] = col[1];
+      colorArray[i*3+2] = col[2];
+    }
+    pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+    pointsMesh.geometry.dispose();
+    pointsMesh.geometry = pointsGeometry;
+  }
+
   // ---------- Three.js scene setup ----------
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030405);
@@ -579,9 +608,9 @@
   scene.add(stars);
 
   // ---------- Initialize points mesh after data ----------
-  let pointsMeshInitialized = false;
+  let isInitialized = false;
   async function initPoints() {
-    await generateData();  // will use real EIA data if available
+    await generateData();
     const posArray = new Float32Array(positions.length * 3);
     positions.forEach((p, i) => {
       posArray[i*3] = p.x;
@@ -601,7 +630,7 @@
     const pointMaterial = new THREE.PointsMaterial({ size: 0.045, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
     pointsMesh = new THREE.Points(pointsGeometry, pointMaterial);
     scene.add(pointsMesh);
-    pointsMeshInitialized = true;
+    isInitialized = true;
     if (dataMode === 'real') await updateRealRisks();
     else updatePointsVisuals();
     resetFilter();
@@ -642,7 +671,7 @@
 
   document.querySelectorAll('input[name="dataMode"]').forEach(radio => {
     radio.addEventListener('change', async (e) => {
-      if (!e.target.checked) return;
+      if (!e.target.checked || !isInitialized) return;
       dataMode = e.target.value;
       hideConnectionPanel();
       if (dataMode === 'real') {
@@ -658,29 +687,6 @@
       resetFilter();
     });
   });
-
-  function rebuildPointsGeometry() {
-    if (!pointsMesh) return;
-    const posArray = new Float32Array(positions.length * 3);
-    positions.forEach((p, i) => {
-      posArray[i*3] = p.x;
-      posArray[i*3+1] = p.y;
-      posArray[i*3+2] = p.z;
-    });
-    pointsGeometry.dispose();
-    pointsGeometry = new THREE.BufferGeometry();
-    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const colorArray = new Float32Array(positions.length * 3);
-    for (let i = 0; i < positions.length; i++) {
-      const col = getColorFromRisk(riskLevel[i]);
-      colorArray[i*3] = col[0];
-      colorArray[i*3+1] = col[1];
-      colorArray[i*3+2] = col[2];
-    }
-    pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-    pointsMesh.geometry.dispose();
-    pointsMesh.geometry = pointsGeometry;
-  }
 
   // Search by name
   document.getElementById('searchInput').addEventListener('keypress', (e) => {
