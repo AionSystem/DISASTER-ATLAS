@@ -86,11 +86,10 @@
 <body>
 <div class="custom-cursor" id="custom-cursor"></div>
 
-<!-- Control Panel -->
 <div id="controls-panel">
   <h3>🌍 Disaster Atlas</h3>
   <div class="toggle-group">
-    <label><input type="radio" name="dataMode" value="real" checked> Real (USGS/NOAA)</label>
+    <label><input type="radio" name="dataMode" value="real" checked> Real (USGS + EIA)</label>
     <label><input type="radio" name="dataMode" value="demo"> Synthetic Demo</label>
   </div>
   <div class="filter-group">
@@ -110,7 +109,7 @@
     <button id="clearConnectionsBtn">Clear Lines</button>
   </div>
   <div class="disclaimer">
-    ⚡ Real data: earthquakes (USGS), hurricanes (NOAA).<br>
+    ⚡ Real data: earthquakes (USGS), power plants (EIA).<br>
     <a href="#" id="learnMore">How to get your own API keys →</a>
   </div>
 </div>
@@ -124,8 +123,6 @@
 </div>
 
 <div class="status" id="status">loading infrastructure...</div>
-
-<!-- Connection panel -->
 <div id="connectionPanel" class="connection-panel" style="display:none;">
   <div class="panel-header">
     <span>🔗 RISK CONNECTIONS</span>
@@ -150,24 +147,23 @@
   const OUTER_RADIUS = 5.8;
   const CONNECTIONS_PER_NODE = 6;
   const RED_THRESHOLD = 70;   // risk % to be considered "red"
-  
+  const EIA_API_KEY = 'MrS1OG7Hz6B5mGm5otarqP9ZMVQdmaoLAErMzrn3';   // <-- your key
+
   // ---------- Data structures ----------
-  let positions = [];          // THREE.Vector3 array
+  let positions = [];
   let nodeNames = [];
-  let nodeTypes = [];          // 'city', 'port', 'plant'
-  let nodeImportance = [];     // for size (population, capacity)
-  let riskLevel = [];          // 0..100 synthetic or computed
+  let nodeTypes = [];
+  let nodeImportance = [];
+  let riskLevel = [];
   let adjacency = [];
   let pointsGeometry = null;
   let pointsMesh = null;
   let currentLines = null;
   let currentSelectedIdx = -1;
   let typeFilter = 'all';
-  let dataMode = 'real';       // 'real' or 'demo'
-  
-  // Tooltip timer
+  let dataMode = 'real';
   let tooltipTimer = null;
-  
+
   // ---------- Helper functions ----------
   function getColorFromRisk(risk) {
     if (risk > 70) return [1.0, 0.2, 0.2];
@@ -175,7 +171,7 @@
     if (risk > 10) return [0.4, 0.8, 0.4];
     return [0.3, 0.6, 1.0];
   }
-  
+
   function latLonToVector(lat, lon, radius) {
     const phi = (90 - lat) * Math.PI / 180;
     const theta = lon * Math.PI / 180;
@@ -184,10 +180,9 @@
     const z = radius * Math.sin(phi) * Math.sin(theta);
     return new THREE.Vector3(x, y, z);
   }
-  
-  // ---------- Build static infrastructure dataset (cities, ports, plants) ----------
-  function buildInfrastructureDataset() {
-    // US cities with lat/lon, population (millions)
+
+  // ---------- Infrastructure dataset (cities + ports, static) ----------
+  function getStaticInfrastructure() {
     const cities = [
       { lat: 40.7128, lon: -74.0060, name: "New York", pop: 8.4, type: "city" },
       { lat: 34.0522, lon: -118.2437, name: "Los Angeles", pop: 3.9, type: "city" },
@@ -205,7 +200,6 @@
       { lat: 38.6270, lon: -90.1994, name: "St. Louis", pop: 0.3, type: "city" },
       { lat: 45.5152, lon: -122.6784, name: "Portland", pop: 0.6, type: "city" }
     ];
-    // Ports
     const ports = [
       { lat: 40.7, lon: -74.0, name: "Port of NY/NJ", capacity: 80, type: "port" },
       { lat: 33.7, lon: -118.2, name: "Port of LA/Long Beach", capacity: 90, type: "port" },
@@ -215,32 +209,45 @@
       { lat: 47.6, lon: -122.3, name: "Port of Seattle", capacity: 50, type: "port" },
       { lat: 25.8, lon: -80.1, name: "PortMiami", capacity: 45, type: "port" }
     ];
-    // Power plants (US examples)
-    const plants = [
-      { lat: 34.0, lon: -118.0, name: "Diablo Canyon", capacity: 2.2, type: "plant" },
-      { lat: 41.0, lon: -73.0, name: "Millstone", capacity: 2.0, type: "plant" },
-      { lat: 39.0, lon: -89.0, name: "Clinton", capacity: 1.0, type: "plant" },
-      { lat: 32.0, lon: -81.0, name: "Vogtle", capacity: 2.4, type: "plant" },
-      { lat: 38.0, lon: -121.0, name: "Rancho Seco", capacity: 0.9, type: "plant" },
-      { lat: 40.0, lon: -74.0, name: "Hope Creek", capacity: 1.2, type: "plant" }
-    ];
-    const nodes = [...cities, ...ports, ...plants];
-    // Add random extra points to reach a reasonable number (~200)
-    const extraNeeded = 200 - nodes.length;
-    for (let i = 0; i < extraNeeded; i++) {
-      const lat = (Math.random() - 0.5) * 170;
-      const lon = Math.random() * 360 - 180;
-      const type = Math.random() < 0.6 ? "city" : (Math.random() < 0.5 ? "port" : "plant");
-      const name = `${type.charAt(0).toUpperCase() + type.slice(1)}-${i+1}`;
-      const importance = type === "city" ? Math.random() * 5 : (type === "port" ? Math.random() * 100 : Math.random() * 3);
-      nodes.push({ lat, lon, name, importance, type });
-    }
-    return nodes;
+    return [...cities, ...ports];
   }
-  
-  // ---------- Fetch real‑time earthquakes from USGS (no key) ----------
+
+  // ---------- Fetch power plants from EIA ----------
+  async function fetchPowerPlants() {
+    if (!EIA_API_KEY || EIA_API_KEY === 'MrS1OG7Hz6B5mGm5otarqP9ZMVQdmaoLAErMzrn3') {
+      console.warn('EIA API key missing, using sample power plants');
+      return [
+        { lat: 34.0, lon: -118.0, name: "Diablo Canyon", capacity: 2.2, type: "plant" },
+        { lat: 41.0, lon: -73.0, name: "Millstone", capacity: 2.0, type: "plant" },
+        { lat: 39.0, lon: -89.0, name: "Clinton", capacity: 1.0, type: "plant" },
+        { lat: 32.0, lon: -81.0, name: "Vogtle", capacity: 2.4, type: "plant" },
+        { lat: 38.0, lon: -121.0, name: "Rancho Seco", capacity: 0.9, type: "plant" },
+        { lat: 40.0, lon: -74.0, name: "Hope Creek", capacity: 1.2, type: "plant" }
+      ];
+    }
+    try {
+      // Using the EIA v2 API for electricity plant data (requires API key)
+      const url = `https://api.eia.gov/v2/electricity/plant-data/data/?api_key=${EIA_API_KEY}&data[]=capacity&facets[plantState][]=all&frequency=annual&start=2024&end=2024&sort[0][column]=plantName&sort[0][direction]=asc&length=500`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!data.response || !data.response.data) throw new Error('Invalid EIA response');
+      // Convert to our format
+      return data.response.data.map(plant => ({
+        lat: plant.latitude,
+        lon: plant.longitude,
+        name: plant.plantName,
+        capacity: plant.capacity,
+        type: "plant"
+      })).filter(p => p.lat && p.lon);
+    } catch (err) {
+      console.error('EIA fetch error:', err);
+      return [];
+    }
+  }
+
+  // ---------- Fetch earthquakes from USGS (no key) ----------
   async function fetchEarthquakes() {
-    const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.0&limit=50";
+    const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.0&limit=30";
     try {
       const response = await fetch(url);
       const data = await response.json();
@@ -255,40 +262,33 @@
       return [];
     }
   }
-  
-  // ---------- Fetch active hurricanes from NOAA (public GeoJSON) ----------
-  // NOAA provides current storm data at: https://www.nhc.noaa.gov/gis/ – we'll use a static sample for demo
-  // Real endpoint would be dynamic, but we'll simulate with a placeholder.
-  async function fetchHurricanes() {
-    // NOAA public GeoJSON for active storms (this URL may change; we use a static sample for reliability)
-    const url = "https://www.nhc.noaa.gov/gis/forecast/geojson/";
-    // For demo purposes, return a sample if fetch fails
-    try {
-      const response = await fetch(url + "latest.json");
-      const data = await response.json();
-      // parse features (simplified)
-      return data.features.map(f => ({
-        lat: f.geometry.coordinates[1],
-        lon: f.geometry.coordinates[0],
-        name: f.properties.name || "Hurricane",
-        magnitude: f.properties.wind_speed ? f.properties.wind_speed / 100 : 1
-      }));
-    } catch (err) {
-      console.warn("Hurricane fetch failed, using sample data.");
-      // Return sample hurricane off Florida
-      return [{
-        lat: 28.0, lon: -80.0, name: "Sample Hurricane", magnitude: 2.0
-      }];
-    }
+
+  // ---------- Sample hurricane (NOAA feed is public but we keep a static for demo) ----------
+  function getSampleHurricanes() {
+    return [{ lat: 32.0, lon: -78.0, name: "Sample Hurricane", magnitude: 2.0 }];
   }
-  
+
+  // ---------- Build full infrastructure list (static + power plants) ----------
+  async function buildInfrastructureList() {
+    const staticNodes = getStaticInfrastructure();
+    const powerPlants = await fetchPowerPlants();
+    const all = [...staticNodes, ...powerPlants];
+    // assign importance
+    all.forEach(n => {
+      if (n.type === 'city') n.importance = n.pop || 1;
+      else if (n.type === 'port') n.importance = n.capacity || 50;
+      else n.importance = n.capacity || 1;
+    });
+    return all;
+  }
+
   // ---------- Update risk levels based on real events ----------
   async function updateRealRisks() {
     const quakes = await fetchEarthquakes();
-    const hurricanes = await fetchHurricanes();
-    // Reset risk for all nodes (base risk 10)
+    const hurricanes = getSampleHurricanes(); // replace with real NOAA feed later
+    // Reset risk
     riskLevel.fill(10);
-    // Apply earthquake risk: distance‑based
+    // Earthquake risk (distance-based)
     quakes.forEach(eq => {
       const eqVec = latLonToVector(eq.lat, eq.lon, 1.2);
       for (let i = 0; i < positions.length; i++) {
@@ -298,7 +298,7 @@
         else if (dist < 2.0) riskLevel[i] = Math.min(100, riskLevel[i] + 20 * (1 - (dist-1)));
       }
     });
-    // Apply hurricane risk (simple radius)
+    // Hurricane risk
     hurricanes.forEach(hur => {
       const hurVec = latLonToVector(hur.lat, hur.lon, 1.2);
       for (let i = 0; i < positions.length; i++) {
@@ -306,19 +306,17 @@
         if (dist < 1.5) riskLevel[i] = Math.min(100, riskLevel[i] + 40 * (1 - dist/1.5));
       }
     });
-    // Update visuals
     updatePointsVisuals();
-    document.getElementById('status').innerHTML = `Real data: ${quakes.length} quakes, ${hurricanes.length} storms — risk updated.`;
+    document.getElementById('status').innerHTML = `Real data: ${quakes.length} quakes, hurricanes active — risk updated.`;
   }
-  
-  // ---------- Synthetic data (demo) ----------
-  function generateSyntheticData() {
-    const nodes = buildInfrastructureDataset();
+
+  // ---------- Generate positions and graph from infrastructure list ----------
+  async function generateData() {
+    const nodes = await buildInfrastructureList();
     const newPositions = [];
     const newNames = [];
     const newTypes = [];
     const newImportance = [];
-    const newRisk = [];
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
       const r = INNER_RADIUS + (Math.random() * (OUTER_RADIUS - INNER_RADIUS));
@@ -326,18 +324,14 @@
       newPositions.push(pos);
       newNames.push(node.name);
       newTypes.push(node.type);
-      newImportance.push(node.importance || (node.pop || node.capacity || 1));
-      // synthetic risk: coastal areas higher
-      const coastal = Math.abs(node.lat) < 60 && Math.abs(node.lon) > 30;
-      const baseRisk = coastal ? 60 : 30;
-      newRisk.push(Math.min(100, Math.max(0, baseRisk + (Math.random() - 0.5) * 40)));
+      newImportance.push(node.importance);
     }
     positions = newPositions;
     nodeNames = newNames;
     nodeTypes = newTypes;
     nodeImportance = newImportance;
-    riskLevel = newRisk;
-    // Build graph: connect nodes within 20° angular distance, with same‑type bias
+    riskLevel = new Array(positions.length).fill(10);
+    // Build graph: connect nodes within 20° angular distance, same‑type bias
     adjacency = Array(positions.length).fill().map(() => []);
     for (let i = 0; i < positions.length; i++) {
       const targetDeg = Math.floor(CONNECTIONS_PER_NODE + (Math.random() - 0.5) * 2);
@@ -360,8 +354,62 @@
       }
     }
   }
-  
-  // ---------- Update points geometry colors from riskLevel ----------
+
+  // ---------- Synthetic data (fallback) ----------
+  async function generateSyntheticData() {
+    const nodes = getStaticInfrastructure();
+    // add some extra random points
+    for (let i = 0; i < 100; i++) {
+      const lat = (Math.random() - 0.5) * 170;
+      const lon = Math.random() * 360 - 180;
+      const type = Math.random() < 0.6 ? "city" : (Math.random() < 0.5 ? "port" : "plant");
+      const name = `${type.charAt(0).toUpperCase() + type.slice(1)}-${i+1}`;
+      const importance = type === "city" ? Math.random() * 5 : (type === "port" ? Math.random() * 100 : Math.random() * 3);
+      nodes.push({ lat, lon, name, importance, type });
+    }
+    const newPositions = [];
+    const newNames = [];
+    const newTypes = [];
+    const newImportance = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const r = INNER_RADIUS + (Math.random() * (OUTER_RADIUS - INNER_RADIUS));
+      const pos = latLonToVector(node.lat, node.lon, r);
+      newPositions.push(pos);
+      newNames.push(node.name);
+      newTypes.push(node.type);
+      newImportance.push(node.importance || 1);
+    }
+    positions = newPositions;
+    nodeNames = newNames;
+    nodeTypes = newTypes;
+    nodeImportance = newImportance;
+    riskLevel = new Array(positions.length).fill().map(() => Math.random() * 100);
+    // build graph same as above
+    adjacency = Array(positions.length).fill().map(() => []);
+    for (let i = 0; i < positions.length; i++) {
+      const targetDeg = Math.floor(CONNECTIONS_PER_NODE + (Math.random() - 0.5) * 2);
+      let added = 0;
+      while (added < targetDeg && adjacency[i].length < targetDeg + 2) {
+        let j = Math.floor(Math.random() * positions.length);
+        if (j === i || adjacency[i].includes(j)) continue;
+        const p1 = positions[i];
+        const p2 = positions[j];
+        const dot = p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
+        const angle = Math.acos(Math.min(1, Math.max(-1, dot / (INNER_RADIUS*OUTER_RADIUS))));
+        const distDeg = angle * 180 / Math.PI;
+        const sameType = (nodeTypes[i] === nodeTypes[j]);
+        const prob = sameType ? 0.8 : 0.3;
+        if (distDeg < 30 && Math.random() < prob) {
+          adjacency[i].push(j);
+          adjacency[j].push(i);
+          added++;
+        }
+      }
+    }
+  }
+
+  // ---------- Update visuals ----------
   function updatePointsVisuals() {
     if (!pointsGeometry) return;
     const colorAttr = pointsGeometry.attributes.color;
@@ -374,34 +422,28 @@
     }
     colorAttr.needsUpdate = true;
   }
-  
-  // ---------- Apply type filter ----------
+
   function applyTypeFilter() {
     if (!pointsGeometry) return;
     const colorAttr = pointsGeometry.attributes.color;
     const array = colorAttr.array;
     for (let i = 0; i < positions.length; i++) {
       if (typeFilter !== 'all' && nodeTypes[i] !== typeFilter) {
-        array[i*3] = 0.3;
-        array[i*3+1] = 0.3;
-        array[i*3+2] = 0.3;
+        array[i*3] = 0.3; array[i*3+1] = 0.3; array[i*3+2] = 0.3;
       } else {
         const col = getColorFromRisk(riskLevel[i]);
-        array[i*3] = col[0];
-        array[i*3+1] = col[1];
-        array[i*3+2] = col[2];
+        array[i*3] = col[0]; array[i*3+1] = col[1]; array[i*3+2] = col[2];
       }
     }
     colorAttr.needsUpdate = true;
   }
-  
+
   function resetFilter() {
     typeFilter = 'all';
     document.getElementById('typeFilter').value = 'all';
     applyTypeFilter();
   }
-  
-  // ---------- Lines & panel ----------
+
   function drawLinesForNode(idx) {
     if (currentLines) scene.remove(currentLines);
     const connections = adjacency[idx];
@@ -420,11 +462,11 @@
     scene.add(lines);
     currentLines = lines;
   }
-  
+
   function clearLines() {
     if (currentLines) { scene.remove(currentLines); currentLines = null; }
   }
-  
+
   function showConnectionPanel(idx) {
     const panel = document.getElementById('connectionPanel');
     const panelContent = document.getElementById('panelContent');
@@ -457,34 +499,168 @@
     `;
     panel.style.display = 'block';
   }
-  
+
   function hideConnectionPanel() {
     const panel = document.getElementById('connectionPanel');
     panel.style.display = 'none';
     clearLines();
     currentSelectedIdx = -1;
   }
-  
-  // ---------- Data mode switch ----------
-  async function switchDataMode(mode) {
-    dataMode = mode;
-    if (mode === 'real') {
-      // Generate base infrastructure first (if not already)
-      if (positions.length === 0) generateSyntheticData();
-      await updateRealRisks();
-      document.getElementById('status').innerHTML = `Real mode: fetching live data...`;
-    } else {
-      generateSyntheticData();
-      updatePointsVisuals();
-      document.getElementById('status').innerHTML = `Demo mode: ${positions.length} synthetic nodes.`;
-    }
-    // Rebuild geometry
-    rebuildPointsGeometry();
-    resetFilter();
-    hideConnectionPanel();
+
+  // ---------- Three.js scene setup ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x030405);
+  scene.fog = new THREE.FogExp2(0x030405, 0.00004);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 2, 12);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.autoRotate = false;
+  controls.enableZoom = true;
+  controls.zoomSpeed = 0.8;
+  controls.rotateSpeed = 0.8;
+  controls.minDistance = 3;
+  controls.maxDistance = 22;
+  controls.target.set(0,0,0);
+
+  // Bloom
+  const renderScenePass = new RenderPass(scene, camera);
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+  bloomPass.threshold = 0.1; bloomPass.strength = 1.0; bloomPass.radius = 0.5;
+  const effectComposer = new EffectComposer(renderer);
+  effectComposer.addPass(renderScenePass);
+  effectComposer.addPass(bloomPass);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0x222222);
+  scene.add(ambientLight);
+  const pointLight = new THREE.PointLight(0xffaa33, 0.8);
+  pointLight.position.set(2, 5, 3);
+  scene.add(pointLight);
+  const backLight = new THREE.PointLight(0x2266ff, 0.5);
+  backLight.position.set(-2, -1, -4);
+  scene.add(backLight);
+
+  // Earth with textures
+  const textureLoader = new THREE.TextureLoader();
+  const earthMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+  const earthSpecularMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
+  const earthNormalMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
+  const cloudMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
+  const earthMat = new THREE.MeshPhongMaterial({ map: earthMap, specularMap: earthSpecularMap, specular: new THREE.Color('grey'), shininess: 5, normalMap: earthNormalMap });
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(1.2, 128, 128), earthMat);
+  scene.add(earth);
+  const cloudMat = new THREE.MeshPhongMaterial({ map: cloudMap, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending });
+  const clouds = new THREE.Mesh(new THREE.SphereGeometry(1.21, 128, 128), cloudMat);
+  scene.add(clouds);
+  function animateClouds() { clouds.rotation.y += 0.0005; requestAnimationFrame(animateClouds); }
+  animateClouds();
+
+  // Starfield
+  const starCount = 6000;
+  const starPositions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const r = 45 + Math.random() * 25, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1);
+    starPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    starPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    starPositions[i*3+2] = r * Math.cos(phi);
   }
-  
+  const starGeometry = new THREE.BufferGeometry();
+  starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6 });
+  const stars = new THREE.Points(starGeometry, starMaterial);
+  scene.add(stars);
+
+  // ---------- Initialize points mesh after data ----------
+  let pointsMeshInitialized = false;
+  async function initPoints() {
+    await generateData();  // will use real EIA data if available
+    const posArray = new Float32Array(positions.length * 3);
+    positions.forEach((p, i) => {
+      posArray[i*3] = p.x;
+      posArray[i*3+1] = p.y;
+      posArray[i*3+2] = p.z;
+    });
+    pointsGeometry = new THREE.BufferGeometry();
+    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const colorArray = new Float32Array(positions.length * 3);
+    for (let i = 0; i < positions.length; i++) {
+      const col = getColorFromRisk(riskLevel[i]);
+      colorArray[i*3] = col[0];
+      colorArray[i*3+1] = col[1];
+      colorArray[i*3+2] = col[2];
+    }
+    pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+    const pointMaterial = new THREE.PointsMaterial({ size: 0.045, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
+    pointsMesh = new THREE.Points(pointsGeometry, pointMaterial);
+    scene.add(pointsMesh);
+    pointsMeshInitialized = true;
+    if (dataMode === 'real') await updateRealRisks();
+    else updatePointsVisuals();
+    resetFilter();
+    document.getElementById('status').innerHTML = `${positions.length} nodes loaded. Click red for risk connections.`;
+  }
+
+  // ---------- UI event handlers ----------
+  document.getElementById('typeFilter').addEventListener('change', (e) => {
+    typeFilter = e.target.value;
+    applyTypeFilter();
+  });
+
+  document.getElementById('resetFilterBtn').addEventListener('click', () => {
+    resetFilter();
+  });
+
+  document.getElementById('resetViewBtn').addEventListener('click', () => {
+    camera.position.set(0, 2, 12);
+    controls.target.set(0,0,0);
+    controls.update();
+    hideConnectionPanel();
+    resetFilter();
+    document.getElementById('searchInput').value = '';
+  });
+
+  document.getElementById('clearConnectionsBtn').addEventListener('click', () => {
+    hideConnectionPanel();
+  });
+
+  document.getElementById('closePanelBtn').addEventListener('click', () => {
+    hideConnectionPanel();
+  });
+
+  document.getElementById('learnMore').addEventListener('click', (e) => {
+    e.preventDefault();
+    alert("To use real data, you need API keys for:\n- NASA FIRMS (wildfires)\n- MarineTraffic (ports)\n\nUSGS earthquakes and NOAA hurricanes are public and already integrated.\nThe EIA key is already included.");
+  });
+
+  document.querySelectorAll('input[name="dataMode"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      if (!e.target.checked) return;
+      dataMode = e.target.value;
+      hideConnectionPanel();
+      if (dataMode === 'real') {
+        await generateData();
+        await updateRealRisks();
+        rebuildPointsGeometry();
+        document.getElementById('status').innerHTML = `Real mode: live data (USGS + EIA) – ${positions.length} nodes`;
+      } else {
+        await generateSyntheticData();
+        rebuildPointsGeometry();
+        document.getElementById('status').innerHTML = `Demo mode: ${positions.length} synthetic nodes.`;
+      }
+      resetFilter();
+    });
+  });
+
   function rebuildPointsGeometry() {
+    if (!pointsMesh) return;
     const posArray = new Float32Array(positions.length * 3);
     positions.forEach((p, i) => {
       posArray[i*3] = p.x;
@@ -505,138 +681,7 @@
     pointsMesh.geometry.dispose();
     pointsMesh.geometry = pointsGeometry;
   }
-  
-  // ---------- Three.js scene setup ----------
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x030405);
-  scene.fog = new THREE.FogExp2(0x030405, 0.00004);
-  
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 2, 12);
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  document.body.appendChild(renderer.domElement);
-  
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
-  controls.autoRotate = false;
-  controls.enableZoom = true;
-  controls.zoomSpeed = 0.8;
-  controls.rotateSpeed = 0.8;
-  controls.minDistance = 3;
-  controls.maxDistance = 22;
-  controls.target.set(0,0,0);
-  
-  // Bloom
-  const renderScenePass = new RenderPass(scene, camera);
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-  bloomPass.threshold = 0.1; bloomPass.strength = 1.0; bloomPass.radius = 0.5;
-  const effectComposer = new EffectComposer(renderer);
-  effectComposer.addPass(renderScenePass);
-  effectComposer.addPass(bloomPass);
-  
-  // Lights
-  const ambientLight = new THREE.AmbientLight(0x222222);
-  scene.add(ambientLight);
-  const pointLight = new THREE.PointLight(0xffaa33, 0.8);
-  pointLight.position.set(2, 5, 3);
-  scene.add(pointLight);
-  const backLight = new THREE.PointLight(0x2266ff, 0.5);
-  backLight.position.set(-2, -1, -4);
-  scene.add(backLight);
-  
-  // Earth with textures
-  const textureLoader = new THREE.TextureLoader();
-  const earthMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
-  const earthSpecularMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
-  const earthNormalMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
-  const cloudMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
-  const earthMat = new THREE.MeshPhongMaterial({ map: earthMap, specularMap: earthSpecularMap, specular: new THREE.Color('grey'), shininess: 5, normalMap: earthNormalMap });
-  const earth = new THREE.Mesh(new THREE.SphereGeometry(1.2, 128, 128), earthMat);
-  scene.add(earth);
-  const cloudMat = new THREE.MeshPhongMaterial({ map: cloudMap, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending });
-  const clouds = new THREE.Mesh(new THREE.SphereGeometry(1.21, 128, 128), cloudMat);
-  scene.add(clouds);
-  function animateClouds() { clouds.rotation.y += 0.0005; requestAnimationFrame(animateClouds); }
-  animateClouds();
-  
-  // Starfield
-  const starCount = 6000;
-  const starPositions = new Float32Array(starCount * 3);
-  for (let i = 0; i < starCount; i++) {
-    const r = 45 + Math.random() * 25, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1);
-    starPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
-    starPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-    starPositions[i*3+2] = r * Math.cos(phi);
-  }
-  const starGeometry = new THREE.BufferGeometry();
-  starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6 });
-  const stars = new THREE.Points(starGeometry, starMaterial);
-  scene.add(stars);
-  
-  // Initialize points mesh
-  generateSyntheticData();   // initial dataset
-  const posArray = new Float32Array(positions.length * 3);
-  positions.forEach((p, i) => {
-    posArray[i*3] = p.x;
-    posArray[i*3+1] = p.y;
-    posArray[i*3+2] = p.z;
-  });
-  pointsGeometry = new THREE.BufferGeometry();
-  pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-  const colorArray = new Float32Array(positions.length * 3);
-  for (let i = 0; i < positions.length; i++) {
-    const col = getColorFromRisk(riskLevel[i]);
-    colorArray[i*3] = col[0];
-    colorArray[i*3+1] = col[1];
-    colorArray[i*3+2] = col[2];
-  }
-  pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-  const pointMaterial = new THREE.PointsMaterial({ size: 0.045, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
-  pointsMesh = new THREE.Points(pointsGeometry, pointMaterial);
-  scene.add(pointsMesh);
-  
-  // ---------- UI event handlers ----------
-  document.getElementById('typeFilter').addEventListener('change', (e) => {
-    typeFilter = e.target.value;
-    applyTypeFilter();
-  });
-  
-  document.getElementById('resetFilterBtn').addEventListener('click', () => {
-    resetFilter();
-  });
-  
-  document.getElementById('resetViewBtn').addEventListener('click', () => {
-    camera.position.set(0, 2, 12);
-    controls.target.set(0,0,0);
-    controls.update();
-    hideConnectionPanel();
-    resetFilter();
-    document.getElementById('searchInput').value = '';
-  });
-  
-  document.getElementById('clearConnectionsBtn').addEventListener('click', () => {
-    hideConnectionPanel();
-  });
-  
-  document.getElementById('closePanelBtn').addEventListener('click', () => {
-    hideConnectionPanel();
-  });
-  
-  document.getElementById('learnMore').addEventListener('click', (e) => {
-    e.preventDefault();
-    alert("To use real data, you need API keys for:\n- NASA FIRMS (wildfires)\n- EIA (power plants)\n- MarineTraffic (ports)\n\nUSGS earthquakes and NOAA hurricanes are public and already integrated.\nVisit the links in the README to sign up.");
-  });
-  
-  document.querySelectorAll('input[name="dataMode"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      if (e.target.checked) switchDataMode(e.target.value);
-    });
-  });
-  
+
   // Search by name
   document.getElementById('searchInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
@@ -654,10 +699,11 @@
       }
     }
   });
-  
+
   // Raycaster for clicks
   const raycaster = new THREE.Raycaster();
   function onMouseClick(event) {
+    if (!pointsMesh) return;
     const mouse = new THREE.Vector2();
     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
@@ -687,9 +733,10 @@
     }
   }
   window.addEventListener('click', onMouseClick);
-  
+
   // Hover tooltips
   function onMouseMove(event) {
+    if (!pointsMesh) return;
     const mouse = new THREE.Vector2();
     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
@@ -708,7 +755,7 @@
     }
   }
   window.addEventListener('mousemove', onMouseMove);
-  
+
   // Custom cursor
   const cursor = document.getElementById('custom-cursor');
   document.addEventListener('mousemove', (e) => {
@@ -719,7 +766,7 @@
     el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
     el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
   });
-  
+
   // Animation loop
   function animate() {
     requestAnimationFrame(animate);
@@ -727,15 +774,15 @@
     effectComposer.render();
   }
   animate();
-  
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     effectComposer.setSize(window.innerWidth, window.innerHeight);
   });
-  
-  // Start in real mode
-  switchDataMode('real');
+
+  // Start
+  initPoints();
 </script>
 </body>
 </html>
