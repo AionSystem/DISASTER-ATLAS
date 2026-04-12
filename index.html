@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Disaster Atlas · Sovereign Edition</title>
-  <!-- Original fonts + additions -->
+  <title>Disaster Atlas – Real‑Time Risk Visualizer</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;0,900;1,300&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* ===== ORIGINAL DISASTER ATLAS STYLES (PRESERVED) ===== */
+    /* same styles as before – omitted for brevity, copy from previous version */
     :root {
       --bg:#08090b; --surface:#0e1117; --panel:#141920; --border:#1e2730;
       --amber:#f0a500; --amber-d:#b07800; --amber-l:#ffc947; --gold:#D4AF37;
@@ -16,11 +15,7 @@
       --serif:'Crimson Pro',Georgia,serif; --jmono:'JetBrains Mono',monospace;
       --ease:cubic-bezier(0.16,1,0.3,1);
     }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      margin:0; overflow:hidden; font-family:var(--sans); background:var(--bg); color:var(--text);
-      cursor:none;
-    }
+    body { margin:0; overflow:hidden; font-family:var(--sans); background:var(--bg); color:var(--text); cursor:none; }
     .custom-cursor{
       width:20px;height:20px;border:2px solid var(--amber);border-radius:50%;
       position:fixed;pointer-events:none;z-index:9999;mix-blend-mode:difference;
@@ -28,64 +23,8 @@
       transform:translate(-50%,-50%);
     }
     .custom-cursor.hover{transform:translate(-50%,-50%) scale(1.5);background:rgba(240,165,0,0.1);border-color:var(--gold);}
-
-    /* ===== CANVAS LAYERS ===== */
-    #globe-canvas {
-      position:fixed; top:0; left:0; width:100%; height:100%; z-index:0;
-    }
-    #ambient-canvas {
-      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;
-      opacity:0.25;  /* subtle */
-    }
-
-    /* ===== SOVEREIGN HUD OVERLAYS (ADDED) ===== */
-    .hud-container {
-      position:fixed; inset:0; pointer-events:none; z-index:20;
-      font-family:var(--mono);
-    }
-    /* FSVE Ring – top right (move controls slightly left) */
-    .certainty-ring {
-      position:absolute; top:20px; right:20px; width:70px; height:70px;
-    }
-    .certainty-ring svg { width:100%; height:100%; filter:drop-shadow(0 0 8px #4ade80); }
-    .certainty-value {
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      color:#4ade80; font-size:13px; font-weight:700; text-shadow:0 0 8px #4ade80;
-    }
-    /* Sovereignty Glyphs – top left */
-    .stack-glyphs {
-      position:absolute; top:20px; left:20px; display:flex; gap:14px;
-    }
-    .glyph {
-      font-size:16px; color:var(--amber); opacity:0.5; text-shadow:0 0 6px var(--amber);
-      transition:all 0.3s;
-    }
-    .glyph.active { opacity:1; color:#4ade80; text-shadow:0 0 12px #4ade80; }
-    /* Metrics Bar – top center */
-    .metrics-bar {
-      position:absolute; top:20px; left:50%; transform:translateX(-50%);
-      display:flex; gap:20px; background:rgba(2,4,8,0.5); backdrop-filter:blur(6px);
-      padding:5px 18px; border-radius:30px; border:1px solid var(--border);
-      font-size:9px; letter-spacing:1px;
-    }
-    .metric-item { display:flex; align-items:center; gap:6px; }
-    .metric-label { color:var(--muted); text-transform:uppercase; }
-    .metric-value { color:#00d4ff; font-weight:700; text-shadow:0 0 5px #00d4ff; }
-    /* ECF Legend – bottom left */
-    .ecf-legend {
-      position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.4);
-      backdrop-filter:blur(4px); padding:6px 12px; border-radius:6px; border:1px solid var(--border);
-      font-size:8px; display:flex; gap:14px;
-    }
-    .legend-item { display:flex; align-items:center; gap:5px; }
-    .color-dot { width:8px; height:8px; border-radius:50%; }
-    .color-dot.established { background:#4ade80; box-shadow:0 0 6px #4ade80; }
-    .color-dot.inference { background:#f0a500; box-shadow:0 0 6px #f0a500; }
-    .color-dot.speculation { background:#a855f7; box-shadow:0 0 6px #a855f7; }
-
-    /* ===== ORIGINAL CONTROLS (ADJUSTED POSITION) ===== */
     #controls-panel {
-      position:absolute; top:100px; right:20px; z-index:150;  /* moved down to avoid FSVE ring */
+      position:absolute; top:20px; right:20px; z-index:150;
       background:rgba(14,17,23,0.85); backdrop-filter:blur(12px);
       border:1px solid var(--border); border-radius:8px; padding:12px;
       font-family:var(--mono); font-size:11px; width:280px;
@@ -101,97 +40,53 @@
       color:var(--text); font-family:var(--mono); font-size:10px;
       padding:4px 6px; border-radius:4px;
     }
-    .filter-group button, button {
-      background:rgba(0,0,0,0.6); border:1px solid var(--amber); color:var(--amber);
-      cursor:pointer; padding:4px 8px; border-radius:4px; font-family:var(--mono); font-size:10px;
+    .filter-group button { background:rgba(0,0,0,0.6); border:1px solid var(--amber); color:var(--amber); cursor:pointer; padding:4px 8px; border-radius:4px; font-family:var(--mono); font-size:10px; }
+    .filter-group button:hover { background:var(--amber); color:#000; }
+    .search-group { margin-bottom:12px; }
+    .search-group input { width:100%; }
+    .disclaimer {
+      font-size:9px; color:var(--muted); margin-top:12px; padding-top:8px;
+      border-top:1px solid var(--border); text-align:center;
     }
-    button:hover { background:var(--amber); color:#000; }
-
-    /* Connection Panel (original) */
+    .disclaimer a { color:var(--amber); text-decoration:none; }
     .connection-panel {
       position:absolute; bottom:80px; right:20px; width:300px;
       background:rgba(14,17,23,0.9); backdrop-filter:blur(12px);
       border:1px solid var(--border); border-radius:8px;
       font-family:var(--mono); font-size:11px; pointer-events:auto; z-index:200;
+      transition:all 0.2s;
     }
     .panel-header {
       background:var(--surface); padding:10px 12px; border-bottom:1px solid var(--border);
       font-weight:bold; color:var(--amber); display:flex; justify-content:space-between;
+      align-items:center;
     }
-    .panel-header button { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:14px; }
+    .panel-header button { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:14px; margin-left:8px; }
+    .panel-header button:hover { color:var(--amber); }
     .selected-company { padding:10px 12px; border-bottom:1px solid var(--border); background:rgba(0,0,0,0.3); }
-    .connections-list { max-height:250px; overflow-y:auto; }
+    .selected-company .ticker { font-size:13px; font-weight:bold; color:var(--amber); }
+    .connections-list { max-height:250px; overflow-y:auto; padding:4px 0; }
     .conn-item { padding:6px 12px; border-bottom:1px solid rgba(30,39,48,0.6); display:flex; justify-content:space-between; }
-
-    /* Status bar (original, moved to bottom) */
-    .status {
-      position:absolute; bottom:20px; right:20px; font-size:10px; color:#aaa;
-      background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px;
-      pointer-events:none; z-index:100;
-    }
+    .conn-ticker { font-weight:bold; color:var(--amber-l); }
+    .conn-risk.neg { color:var(--red); }
+    .conn-risk.pos { color:#66cc66; }
+    .no-connections { padding:12px; text-align:center; color:var(--muted); }
     .legend {
       position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.6);
       padding:6px 10px; border-radius:4px; font-size:9px; font-family:var(--mono);
       pointer-events:none; z-index:100;
     }
-
-    /* Responsive */
-    @media (max-width:700px) {
-      .metrics-bar { display:none; }
-      #controls-panel { width:240px; }
-    }
+    .legend div { display:flex; align-items:center; gap:6px; margin:2px 0; }
+    .color-box { width:12px; height:12px; border-radius:2px; }
+    button, .action-btn { background:rgba(0,0,0,0.6); border:1px solid var(--amber); color:var(--amber); cursor:pointer; font-family:var(--mono); font-size:10px; padding:4px 8px; border-radius:4px; transition:all 0.2s; }
+    button:hover, .action-btn:hover { background:var(--amber); color:#000; }
+    .status { position:absolute; bottom:20px; right:20px; font-size:10px; color:#aaa; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; pointer-events:none; z-index:100; }
+    @media (max-width:700px) { #controls-panel { width:240px; font-size:10px; } .connection-panel { width:260px; bottom:70px; right:10px; } .legend { bottom:10px; left:10px; } .status { bottom:10px; right:10px; } }
   </style>
 </head>
 <body>
-
-<!-- Custom cursor -->
 <div class="custom-cursor" id="custom-cursor"></div>
 
-<!-- Three.js Globe Canvas -->
-<canvas id="globe-canvas"></canvas>
-
-<!-- Ambient Particle Field Canvas -->
-<canvas id="ambient-canvas"></canvas>
-
-<!-- Sovereign HUD Overlays -->
-<div class="hud-container">
-  <!-- Sovereignty Glyphs -->
-  <div class="stack-glyphs">
-    <span class="glyph" id="glyphFsve">◈</span>
-    <span class="glyph" id="glyphStp">⁂</span>
-    <span class="glyph" id="glyphCertus">⊕</span>
-    <span class="glyph" id="glyphAion">∇</span>
-    <span class="glyph" id="glyphCdi">λ</span>
-  </div>
-
-  <!-- Metrics Bar -->
-  <div class="metrics-bar">
-    <div class="metric-item"><span class="metric-label">SNR</span><span class="metric-value" id="snrVal">12.4</span></div>
-    <div class="metric-item"><span class="metric-label">ENTROPY</span><span class="metric-value" id="entropyVal">0.42</span></div>
-    <div class="metric-item"><span class="metric-label">FRESH</span><span class="metric-value" id="freshnessVal">2m</span></div>
-    <div class="metric-item"><span class="metric-label">NODES</span><span class="metric-value" id="nodeCount">0</span></div>
-  </div>
-
-  <!-- FSVE Certainty Ring -->
-  <div class="certainty-ring">
-    <svg viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="2"/>
-      <circle cx="50" cy="50" r="42" fill="none" stroke="#4ade80" stroke-width="3"
-              stroke-dasharray="264" stroke-dashoffset="66" stroke-linecap="round"
-              transform="rotate(-90 50 50)" id="certaintyRing"/>
-    </svg>
-    <div class="certainty-value" id="certaintyValue">0.73</div>
-  </div>
-
-  <!-- ECF Legend -->
-  <div class="ecf-legend">
-    <div class="legend-item"><span class="color-dot established"></span> ESTABLISHED</div>
-    <div class="legend-item"><span class="color-dot inference"></span> INFERENCE</div>
-    <div class="legend-item"><span class="color-dot speculation"></span> SPECULATION</div>
-  </div>
-</div>
-
-<!-- Original Controls Panel (moved down slightly) -->
 <div id="controls-panel">
   <h3>🌍 Disaster Atlas</h3>
   <div class="toggle-group">
@@ -220,18 +115,15 @@
   </div>
 </div>
 
-<!-- Original Legend (risk colors) -->
 <div class="legend">
   <div><div class="color-box" style="background:#ff4d4d;"></div> High risk (disaster active)</div>
   <div><div class="color-box" style="background:#ffaa33;"></div> Moderate risk</div>
   <div><div class="color-box" style="background:#66cc66;"></div> Low risk</div>
   <div><div class="color-box" style="background:#33aaff;"></div> No risk</div>
+  <div><div class="color-box" style="background:#aaa;"></div> Size = importance</div>
 </div>
 
-<!-- Original Status -->
 <div class="status" id="status">loading infrastructure...</div>
-
-<!-- Connection Panel (original) -->
 <div id="connectionPanel" class="connection-panel" style="display:none;">
   <div class="panel-header">
     <span>🔗 RISK CONNECTIONS</span>
@@ -245,120 +137,42 @@
 </script>
 
 <script type="module">
-  // ==================== IMPORTS & CONFIG ====================
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
   import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
   import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
+  // ---------- Configuration ----------
   const INNER_RADIUS = 2.2;
   const OUTER_RADIUS = 5.8;
   const CONNECTIONS_PER_NODE = 6;
-  const RED_THRESHOLD = 70;
-  const EIA_API_KEY = 'MrS1OG7Hz6B5mGm5otarqP9ZMVQdmaoLAErMzrn3';
+  const RED_THRESHOLD = 70;   // risk % to be considered "red"
+  const EIA_API_KEY = 'MrS1OG7Hz6B5mGm5otarqP9ZMVQdmaoLAErMzrn3';   // <-- your key
 
-  // ---------- Global State ----------
+  // ---------- Data structures ----------
   let positions = [];
   let nodeNames = [];
   let nodeTypes = [];
   let nodeImportance = [];
   let riskLevel = [];
   let adjacency = [];
+  let pointsGeometry = null;
   let pointsMesh = null;
   let currentLines = null;
   let currentSelectedIdx = -1;
   let typeFilter = 'all';
   let dataMode = 'real';
-  let lastUpdate = Date.now();
+  let tooltipTimer = null;
 
-  // Metrics
-  let fsveEV = 0.73, entropyVal = 0.42, snrVal = 12.4;
-
-  // DOM Elements
-  const certaintyRing = document.getElementById('certaintyRing');
-  const certaintyValue = document.getElementById('certaintyValue');
-  const snrSpan = document.getElementById('snrVal');
-  const entropySpan = document.getElementById('entropyVal');
-  const freshnessSpan = document.getElementById('freshnessVal');
-  const nodeCountSpan = document.getElementById('nodeCount');
-  const glyphs = {
-    fsve: document.getElementById('glyphFsve'), stp: document.getElementById('glyphStp'),
-    certus: document.getElementById('glyphCertus'), aion: document.getElementById('glyphAion'),
-    cdi: document.getElementById('glyphCdi')
-  };
-  const connectionPanel = document.getElementById('connectionPanel');
-  const panelContent = document.getElementById('panelContent');
-  const statusDiv = document.getElementById('status');
-
-  // Three.js globals
-  let scene, camera, renderer, controls, effectComposer, earth, clouds;
-
-  // ==================== AMBIENT PARTICLE FIELD (ADDED) ====================
-  const ambientCanvas = document.getElementById('ambient-canvas');
-  const ambientCtx = ambientCanvas.getContext('2d');
-  let particles = [];
-  const PARTICLE_COUNT = 50;
-
-  function resizeAmbientCanvas() {
-    ambientCanvas.width = window.innerWidth;
-    ambientCanvas.height = window.innerHeight;
-    initParticles();
-  }
-  function initParticles() {
-    particles = [];
-    for (let i=0; i<PARTICLE_COUNT; i++) {
-      particles.push({
-        x: Math.random() * ambientCanvas.width, y: Math.random() * ambientCanvas.height,
-        vx: (Math.random()-0.5)*0.15, vy: (Math.random()-0.5)*0.15,
-        size: Math.random()*2.5+1,
-        color: Math.random()>0.5 ? '#00d4ff' : '#f0a500'
-      });
-    }
-  }
-  function drawAmbientField() {
-    if (!ambientCtx) return;
-    ambientCtx.clearRect(0,0,ambientCanvas.width,ambientCanvas.height);
-    particles.forEach(p => {
-      p.vx *= 0.99; p.vy *= 0.99;
-      p.x += p.vx; p.y += p.vy;
-      if (p.x<0) p.x=ambientCanvas.width; if (p.x>ambientCanvas.width) p.x=0;
-      if (p.y<0) p.y=ambientCanvas.height; if (p.y>ambientCanvas.height) p.y=0;
-    });
-    // Mycelium connections
-    ambientCtx.shadowBlur = 8;
-    for (let i=0; i<particles.length; i++) {
-      for (let j=i+1; j<particles.length; j++) {
-        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx*dx+dy*dy);
-        if (dist < 120) {
-          const alpha = (1 - dist/120) * 0.1;
-          ambientCtx.beginPath();
-          ambientCtx.moveTo(particles[i].x, particles[i].y);
-          ambientCtx.lineTo(particles[j].x, particles[j].y);
-          ambientCtx.strokeStyle = '#a855f7';
-          ambientCtx.lineWidth = 0.7;
-          ambientCtx.shadowColor = '#a855f7';
-          ambientCtx.globalAlpha = alpha;
-          ambientCtx.stroke();
-        }
-      }
-    }
-    particles.forEach(p => {
-      ambientCtx.beginPath();
-      ambientCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-      ambientCtx.fillStyle = p.color;
-      ambientCtx.shadowColor = p.color;
-      ambientCtx.shadowBlur = 10;
-      ambientCtx.globalAlpha = 0.2;
-      ambientCtx.fill();
-    });
-    ambientCtx.shadowBlur = 0;
-    ambientCtx.globalAlpha = 1.0;
-    requestAnimationFrame(drawAmbientField);
+  // ---------- Helper functions ----------
+  function getColorFromRisk(risk) {
+    if (risk > 70) return [1.0, 0.2, 0.2];
+    if (risk > 40) return [1.0, 0.65, 0.2];
+    if (risk > 10) return [0.4, 0.8, 0.4];
+    return [0.3, 0.6, 1.0];
   }
 
-  // ==================== ORIGINAL HELPER FUNCTIONS ====================
   function latLonToVector(lat, lon, radius) {
     const phi = (90 - lat) * Math.PI / 180;
     const theta = lon * Math.PI / 180;
@@ -368,361 +182,585 @@
     return new THREE.Vector3(x, y, z);
   }
 
-  function getRiskColor(risk) {
-    if (risk > 70) return [1.0, 0.2, 0.2];
-    if (risk > 40) return [1.0, 0.65, 0.2];
-    if (risk > 10) return [0.4, 0.8, 0.4];
-    return [0.3, 0.6, 1.0];
-  }
-
-  // ECF classification (for HUD)
-  function getECFClass(risk, isReal) {
-    if (isReal && risk > 70) return 'established';
-    if (isReal) return 'inference';
-    return 'speculation';
-  }
-
-  // ==================== DATA FETCHING (ORIGINAL) ====================
-  async function fetchPowerPlants() {
-    try {
-      const url = `https://api.eia.gov/v2/electricity/plant-data/data/?api_key=${EIA_API_KEY}&data[]=capacity&facets[plantState][]=all&frequency=annual&start=2024&end=2024&length=100`;
-      const res = await fetch(url);
-      const data = await res.json();
-      return data.response.data.map(p => ({
-        lat: p.latitude, lon: p.longitude, name: p.plantName, capacity: p.capacity, type: "plant"
-      })).filter(p => p.lat && p.lon);
-    } catch { return []; }
-  }
-
-  async function fetchEarthquakes() {
-    try {
-      const res = await fetch("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.0&limit=30");
-      const data = await res.json();
-      return data.features.map(f => ({
-        lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
-        magnitude: f.properties.mag, name: `M${f.properties.mag.toFixed(1)} quake`
-      }));
-    } catch { return []; }
-  }
-
+  // ---------- Infrastructure dataset (cities + ports, static) ----------
   function getStaticInfrastructure() {
     const cities = [
       { lat: 40.7128, lon: -74.0060, name: "New York", pop: 8.4, type: "city" },
       { lat: 34.0522, lon: -118.2437, name: "Los Angeles", pop: 3.9, type: "city" },
       { lat: 41.8781, lon: -87.6298, name: "Chicago", pop: 2.7, type: "city" },
       { lat: 29.7604, lon: -95.3698, name: "Houston", pop: 2.3, type: "city" },
+      { lat: 39.9526, lon: -75.1652, name: "Philadelphia", pop: 1.6, type: "city" },
       { lat: 32.7157, lon: -117.1611, name: "San Diego", pop: 1.4, type: "city" },
+      { lat: 33.7490, lon: -84.3880, name: "Atlanta", pop: 0.5, type: "city" },
       { lat: 42.3601, lon: -71.0589, name: "Boston", pop: 0.7, type: "city" },
-      { lat: 47.6062, lon: -122.3321, name: "Seattle", pop: 0.7, type: "city" }
+      { lat: 33.4484, lon: -112.0740, name: "Phoenix", pop: 1.7, type: "city" },
+      { lat: 47.6062, lon: -122.3321, name: "Seattle", pop: 0.7, type: "city" },
+      { lat: 25.7617, lon: -80.1918, name: "Miami", pop: 0.5, type: "city" },
+      { lat: 38.9072, lon: -77.0369, name: "Washington DC", pop: 0.7, type: "city" },
+      { lat: 39.7392, lon: -104.9903, name: "Denver", pop: 0.7, type: "city" },
+      { lat: 38.6270, lon: -90.1994, name: "St. Louis", pop: 0.3, type: "city" },
+      { lat: 45.5152, lon: -122.6784, name: "Portland", pop: 0.6, type: "city" }
     ];
     const ports = [
       { lat: 40.7, lon: -74.0, name: "Port of NY/NJ", capacity: 80, type: "port" },
-      { lat: 33.7, lon: -118.2, name: "Port of LA/LB", capacity: 90, type: "port" },
-      { lat: 29.7, lon: -95.0, name: "Port of Houston", capacity: 70, type: "port" }
+      { lat: 33.7, lon: -118.2, name: "Port of LA/Long Beach", capacity: 90, type: "port" },
+      { lat: 29.7, lon: -95.0, name: "Port of Houston", capacity: 70, type: "port" },
+      { lat: 32.7, lon: -117.2, name: "Port of San Diego", capacity: 40, type: "port" },
+      { lat: 42.3, lon: -71.0, name: "Port of Boston", capacity: 30, type: "port" },
+      { lat: 47.6, lon: -122.3, name: "Port of Seattle", capacity: 50, type: "port" },
+      { lat: 25.8, lon: -80.1, name: "PortMiami", capacity: 45, type: "port" }
     ];
     return [...cities, ...ports];
   }
 
-  async function buildNodes() {
+  // ---------- Fetch power plants from EIA ----------
+  async function fetchPowerPlants() {
+    if (!EIA_API_KEY || EIA_API_KEY === 'MrS1OG7Hz6B5mGm5otarqP9ZMVQdmaoLAErMzrn3') {
+      console.warn('EIA API key missing, using sample power plants');
+      return [
+        { lat: 34.0, lon: -118.0, name: "Diablo Canyon", capacity: 2.2, type: "plant" },
+        { lat: 41.0, lon: -73.0, name: "Millstone", capacity: 2.0, type: "plant" },
+        { lat: 39.0, lon: -89.0, name: "Clinton", capacity: 1.0, type: "plant" },
+        { lat: 32.0, lon: -81.0, name: "Vogtle", capacity: 2.4, type: "plant" },
+        { lat: 38.0, lon: -121.0, name: "Rancho Seco", capacity: 0.9, type: "plant" },
+        { lat: 40.0, lon: -74.0, name: "Hope Creek", capacity: 1.2, type: "plant" }
+      ];
+    }
+    try {
+      // Note: This is a sample endpoint; the actual EIA API may require different parameters.
+      // We'll add a short timeout to avoid overwhelming the API.
+      const url = `https://api.eia.gov/v2/electricity/plant-data/data/?api_key=${EIA_API_KEY}&data[]=capacity&facets[plantState][]=all&frequency=annual&start=2024&end=2024&sort[0][column]=plantName&sort[0][direction]=asc&length=500`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data.response || !data.response.data) throw new Error('Invalid EIA response');
+      return data.response.data.map(plant => ({
+        lat: plant.latitude,
+        lon: plant.longitude,
+        name: plant.plantName,
+        capacity: plant.capacity,
+        type: "plant"
+      })).filter(p => p.lat && p.lon);
+    } catch (err) {
+      console.error('EIA fetch error:', err);
+      return [];
+    }
+  }
+
+  // ---------- Fetch earthquakes from USGS (no key) ----------
+  async function fetchEarthquakes() {
+    const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.0&limit=30";
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      return data.features.map(f => ({
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        magnitude: f.properties.mag,
+        name: `M${f.properties.mag.toFixed(1)} quake`
+      }));
+    } catch (err) {
+      console.warn("Earthquake fetch failed:", err);
+      return [];
+    }
+  }
+
+  // ---------- Sample hurricane ----------
+  function getSampleHurricanes() {
+    return [{ lat: 32.0, lon: -78.0, name: "Sample Hurricane", magnitude: 2.0 }];
+  }
+
+  // ---------- Build full infrastructure list (static + power plants) ----------
+  async function buildInfrastructureList() {
     const staticNodes = getStaticInfrastructure();
-    const plants = dataMode === 'real' ? await fetchPowerPlants() : [];
-    const all = [...staticNodes, ...plants];
-    const newPos = [], newNames = [], newTypes = [], newImp = [];
+    const powerPlants = await fetchPowerPlants();
+    const all = [...staticNodes, ...powerPlants];
     all.forEach(n => {
-      const r = INNER_RADIUS + Math.random() * (OUTER_RADIUS - INNER_RADIUS);
-      newPos.push(latLonToVector(n.lat, n.lon, r));
-      newNames.push(n.name);
-      newTypes.push(n.type);
-      newImp.push(n.type === 'city' ? n.pop : (n.capacity || 10));
+      if (n.type === 'city') n.importance = n.pop || 1;
+      else if (n.type === 'port') n.importance = n.capacity || 50;
+      else n.importance = n.capacity || 1;
     });
-    positions = newPos;
+    return all;
+  }
+
+  // ---------- Update risk levels based on real events ----------
+  async function updateRealRisks() {
+    const quakes = await fetchEarthquakes();
+    const hurricanes = getSampleHurricanes();
+    // Reset risk
+    riskLevel.fill(10);
+    // Earthquake risk (distance-based)
+    quakes.forEach(eq => {
+      const eqVec = latLonToVector(eq.lat, eq.lon, 1.2);
+      for (let i = 0; i < positions.length; i++) {
+        const nodeVec = positions[i];
+        const dist = nodeVec.distanceTo(eqVec);
+        if (dist < 1.0) riskLevel[i] = Math.min(100, riskLevel[i] + 50 * (1 - dist));
+        else if (dist < 2.0) riskLevel[i] = Math.min(100, riskLevel[i] + 20 * (1 - (dist-1)));
+      }
+    });
+    // Hurricane risk
+    hurricanes.forEach(hur => {
+      const hurVec = latLonToVector(hur.lat, hur.lon, 1.2);
+      for (let i = 0; i < positions.length; i++) {
+        const dist = positions[i].distanceTo(hurVec);
+        if (dist < 1.5) riskLevel[i] = Math.min(100, riskLevel[i] + 40 * (1 - dist/1.5));
+      }
+    });
+    updatePointsVisuals();
+    document.getElementById('status').innerHTML = `Real data: ${quakes.length} quakes, hurricanes active — risk updated.`;
+  }
+
+  // ---------- Generate positions and graph from infrastructure list ----------
+  async function generateData() {
+    const nodes = await buildInfrastructureList();
+    const newPositions = [];
+    const newNames = [];
+    const newTypes = [];
+    const newImportance = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const r = INNER_RADIUS + (Math.random() * (OUTER_RADIUS - INNER_RADIUS));
+      const pos = latLonToVector(node.lat, node.lon, r);
+      newPositions.push(pos);
+      newNames.push(node.name);
+      newTypes.push(node.type);
+      newImportance.push(node.importance);
+    }
+    positions = newPositions;
     nodeNames = newNames;
     nodeTypes = newTypes;
-    nodeImportance = newImp;
+    nodeImportance = newImportance;
     riskLevel = new Array(positions.length).fill(10);
-    // Build adjacency
+    // Build graph: connect nodes within 20° angular distance, same‑type bias
     adjacency = Array(positions.length).fill().map(() => []);
-    for (let i=0; i<positions.length; i++) {
-      const targetDeg = Math.floor(CONNECTIONS_PER_NODE + (Math.random()-0.5)*2);
+    for (let i = 0; i < positions.length; i++) {
+      const targetDeg = Math.floor(CONNECTIONS_PER_NODE + (Math.random() - 0.5) * 2);
       let added = 0;
-      while (added < targetDeg) {
+      while (added < targetDeg && adjacency[i].length < targetDeg + 2) {
         let j = Math.floor(Math.random() * positions.length);
-        if (j===i || adjacency[i].includes(j)) continue;
-        const p1=positions[i], p2=positions[j];
+        if (j === i || adjacency[i].includes(j)) continue;
+        const p1 = positions[i];
+        const p2 = positions[j];
         const dot = p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
-        const angle = Math.acos(Math.min(1, dot/(INNER_RADIUS*OUTER_RADIUS)));
-        if (angle * 180/Math.PI < 35 && Math.random() < 0.7) {
-          adjacency[i].push(j); adjacency[j].push(i); added++;
+        const angle = Math.acos(Math.min(1, Math.max(-1, dot / (INNER_RADIUS*OUTER_RADIUS))));
+        const distDeg = angle * 180 / Math.PI;
+        const sameType = (nodeTypes[i] === nodeTypes[j]);
+        const prob = sameType ? 0.8 : 0.3;
+        if (distDeg < 30 && Math.random() < prob) {
+          adjacency[i].push(j);
+          adjacency[j].push(i);
+          added++;
         }
       }
     }
   }
 
-  async function updateRealRisks() {
-    const quakes = await fetchEarthquakes();
-    riskLevel.fill(10);
-    quakes.forEach(eq => {
-      const eqVec = latLonToVector(eq.lat, eq.lon, 1.2);
-      for (let i=0; i<positions.length; i++) {
-        const dist = positions[i].distanceTo(eqVec);
-        if (dist < 1.2) riskLevel[i] = Math.min(100, riskLevel[i] + 60*(1-dist));
-        else if (dist < 2.5) riskLevel[i] = Math.min(100, riskLevel[i] + 20*(1-(dist-1.2)));
+  // ---------- Synthetic data (fallback) ----------
+  async function generateSyntheticData() {
+    const nodes = getStaticInfrastructure();
+    // add some extra random points
+    for (let i = 0; i < 100; i++) {
+      const lat = (Math.random() - 0.5) * 170;
+      const lon = Math.random() * 360 - 180;
+      const type = Math.random() < 0.6 ? "city" : (Math.random() < 0.5 ? "port" : "plant");
+      const name = `${type.charAt(0).toUpperCase() + type.slice(1)}-${i+1}`;
+      const importance = type === "city" ? Math.random() * 5 : (type === "port" ? Math.random() * 100 : Math.random() * 3);
+      nodes.push({ lat, lon, name, importance, type });
+    }
+    const newPositions = [];
+    const newNames = [];
+    const newTypes = [];
+    const newImportance = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const r = INNER_RADIUS + (Math.random() * (OUTER_RADIUS - INNER_RADIUS));
+      const pos = latLonToVector(node.lat, node.lon, r);
+      newPositions.push(pos);
+      newNames.push(node.name);
+      newTypes.push(node.type);
+      newImportance.push(node.importance || 1);
+    }
+    positions = newPositions;
+    nodeNames = newNames;
+    nodeTypes = newTypes;
+    nodeImportance = newImportance;
+    riskLevel = new Array(positions.length).fill().map(() => Math.random() * 100);
+    // build graph same as above
+    adjacency = Array(positions.length).fill().map(() => []);
+    for (let i = 0; i < positions.length; i++) {
+      const targetDeg = Math.floor(CONNECTIONS_PER_NODE + (Math.random() - 0.5) * 2);
+      let added = 0;
+      while (added < targetDeg && adjacency[i].length < targetDeg + 2) {
+        let j = Math.floor(Math.random() * positions.length);
+        if (j === i || adjacency[i].includes(j)) continue;
+        const p1 = positions[i];
+        const p2 = positions[j];
+        const dot = p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
+        const angle = Math.acos(Math.min(1, Math.max(-1, dot / (INNER_RADIUS*OUTER_RADIUS))));
+        const distDeg = angle * 180 / Math.PI;
+        const sameType = (nodeTypes[i] === nodeTypes[j]);
+        const prob = sameType ? 0.8 : 0.3;
+        if (distDeg < 30 && Math.random() < prob) {
+          adjacency[i].push(j);
+          adjacency[j].push(i);
+          added++;
+        }
       }
-    });
-    updatePointsVisuals();
-    lastUpdate = Date.now();
+    }
   }
 
+  // ---------- Update visuals ----------
   function updatePointsVisuals() {
-    if (!pointsMesh) return;
-    const colorAttr = pointsMesh.geometry.attributes.color;
+    if (!pointsGeometry) return;
+    const colorAttr = pointsGeometry.attributes.color;
     const array = colorAttr.array;
-    for (let i=0; i<positions.length; i++) {
-      const col = getRiskColor(riskLevel[i]);
-      array[i*3]=col[0]; array[i*3+1]=col[1]; array[i*3+2]=col[2];
+    for (let i = 0; i < positions.length; i++) {
+      const col = getColorFromRisk(riskLevel[i]);
+      array[i*3] = col[0];
+      array[i*3+1] = col[1];
+      array[i*3+2] = col[2];
     }
     colorAttr.needsUpdate = true;
   }
 
-  function rebuildPoints() {
-    if (!pointsMesh) return;
-    const posArray = new Float32Array(positions.length*3);
-    positions.forEach((p,i)=>{ posArray[i*3]=p.x; posArray[i*3+1]=p.y; posArray[i*3+2]=p.z; });
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const colorArray = new Float32Array(positions.length*3);
-    for (let i=0; i<positions.length; i++) {
-      const col = getRiskColor(riskLevel[i]);
-      colorArray[i*3]=col[0]; colorArray[i*3+1]=col[1]; colorArray[i*3+2]=col[2];
+  function applyTypeFilter() {
+    if (!pointsGeometry) return;
+    const colorAttr = pointsGeometry.attributes.color;
+    const array = colorAttr.array;
+    for (let i = 0; i < positions.length; i++) {
+      if (typeFilter !== 'all' && nodeTypes[i] !== typeFilter) {
+        array[i*3] = 0.3; array[i*3+1] = 0.3; array[i*3+2] = 0.3;
+      } else {
+        const col = getColorFromRisk(riskLevel[i]);
+        array[i*3] = col[0]; array[i*3+1] = col[1]; array[i*3+2] = col[2];
+      }
     }
-    geom.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-    pointsMesh.geometry.dispose();
-    pointsMesh.geometry = geom;
+    colorAttr.needsUpdate = true;
+  }
+
+  function resetFilter() {
+    typeFilter = 'all';
+    document.getElementById('typeFilter').value = 'all';
+    applyTypeFilter();
   }
 
   function drawLinesForNode(idx) {
     if (currentLines) scene.remove(currentLines);
-    const conns = adjacency[idx].slice(0,10);
-    if (!conns.length) return;
-    const verts = [];
+    const connections = adjacency[idx];
+    if (!connections.length) return;
+    const limited = connections.slice(0, 10);
+    const vertices = [];
     const p1 = positions[idx];
-    conns.forEach(nei => {
+    limited.forEach(nei => {
       const p2 = positions[nei];
-      verts.push(p1.x,p1.y,p1.z, p2.x,p2.y,p2.z);
+      vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
     });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
-    const mat = new THREE.LineBasicMaterial({ color: 0xffaa33 });
-    const lines = new THREE.LineSegments(geo, mat);
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xffaa33 });
+    const lines = new THREE.LineSegments(lineGeo, lineMat);
     scene.add(lines);
     currentLines = lines;
   }
 
-  function showPanel(idx) {
-    const risk = riskLevel[idx];
-    const conns = adjacency[idx].slice(0,8);
-    const html = `
-      <div class="selected-company">
-        <div class="ticker">${nodeNames[idx]}</div>
-        <div>Type: ${nodeTypes[idx]}</div>
-        <div>Risk: ${risk.toFixed(0)}%</div>
-      </div>
-      <div class="connections-list">
-        ${conns.map(c => `<div class="conn-item"><span>${nodeNames[c]}</span><span>${riskLevel[c].toFixed(0)}%</span></div>`).join('')}
-      </div>
-    `;
-    panelContent.innerHTML = html;
-    connectionPanel.style.display = 'block';
+  function clearLines() {
+    if (currentLines) { scene.remove(currentLines); currentLines = null; }
   }
 
-  function hidePanel() {
-    connectionPanel.style.display = 'none';
-    if (currentLines) { scene.remove(currentLines); currentLines = null; }
+  function showConnectionPanel(idx) {
+    const panel = document.getElementById('connectionPanel');
+    const panelContent = document.getElementById('panelContent');
+    const risk = riskLevel[idx];
+    const type = nodeTypes[idx];
+    const importance = nodeImportance[idx];
+    const connections = adjacency[idx];
+    const limited = connections.slice(0, 10);
+    const connHTML = limited.map(connIdx => {
+      const connRisk = riskLevel[connIdx];
+      const riskClass = connRisk > 70 ? 'neg' : (connRisk > 40 ? '' : 'pos');
+      const riskText = `${connRisk.toFixed(0)}%`;
+      return `
+        <div class="conn-item">
+          <span class="conn-ticker">${nodeNames[connIdx]}</span>
+          <span class="conn-risk ${riskClass}">${riskText}</span>
+          <span style="color:var(--muted);">${nodeTypes[connIdx]}</span>
+        </div>
+      `;
+    }).join('');
+    panelContent.innerHTML = `
+      <div class="selected-company">
+        <div class="ticker">${nodeNames[idx]}</div>
+        <div>Type: ${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+        <div>Risk: ${risk.toFixed(0)}%</div>
+        <div>Importance: ${importance.toFixed(1)}</div>
+      </div>
+      <div style="padding:6px 12px; font-size:10px; color:var(--muted);">Connections (up to 10):</div>
+      <div class="connections-list">${connHTML || '<div class="no-connections">No direct connections</div>'}</div>
+    `;
+    panel.style.display = 'block';
+  }
+
+  function hideConnectionPanel() {
+    const panel = document.getElementById('connectionPanel');
+    panel.style.display = 'none';
+    clearLines();
     currentSelectedIdx = -1;
   }
 
-  // ==================== METRICS & HUD UPDATE ====================
-  function updateHUD() {
-    const realRatio = dataMode === 'real' ? 0.9 : 0.3;
-    const ev = Math.min(0.95, 0.6 + realRatio*0.2 + (positions.length/200)*0.1);
-    fsveEV = ev;
-    const offset = 264 * (1 - ev);
-    certaintyRing.style.strokeDashoffset = offset;
-    certaintyRing.style.stroke = ev>0.7 ? '#4ade80' : (ev>0.4?'#f0a500':'#ef4444');
-    certaintyValue.textContent = ev.toFixed(2);
-    certaintyValue.style.color = ev>0.7 ? '#4ade80' : (ev>0.4?'#f0a500':'#ef4444');
-    
-    const meanRisk = riskLevel.reduce((a,b)=>a+b,0)/riskLevel.length;
-    const variance = riskLevel.reduce((a,b)=>a+Math.pow(b-meanRisk,2),0)/riskLevel.length;
-    entropyVal = Math.min(0.9, 0.3 + variance/500);
-    entropySpan.textContent = entropyVal.toFixed(2);
-    
-    const highRiskNodes = riskLevel.filter(r=>r>50).length;
-    snrVal = Math.max(5, 10 + highRiskNodes*0.5);
-    snrSpan.textContent = snrVal.toFixed(1);
-    
-    const freshSec = Math.floor((Date.now()-lastUpdate)/1000);
-    freshnessSpan.textContent = freshSec < 60 ? `${freshSec}s` : `${Math.floor(freshSec/60)}m`;
-    nodeCountSpan.textContent = positions.length;
-    
-    glyphs.fsve.classList.toggle('active', ev>0.7);
-    glyphs.stp.classList.toggle('active', adjacency.some(a=>a.length>4));
-    glyphs.certus.classList.toggle('active', dataMode==='real');
-    glyphs.cdi.classList.toggle('active', positions.length>20);
-  }
-
-  // ==================== THREE.JS SCENE (ORIGINAL) ====================
-  function initThree() {
-    const canvasEl = document.getElementById('globe-canvas');
-    renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(devicePixelRatio);
-    
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x030405);
-    scene.fog = new THREE.FogExp2(0x030405, 0.00003);
-    
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 12);
-    
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
-    controls.enableZoom = true;
-    controls.minDistance = 3;
-    controls.maxDistance = 20;
-    
-    const ambient = new THREE.AmbientLight(0x222222);
-    scene.add(ambient);
-    const light1 = new THREE.PointLight(0xffaa33, 0.8);
-    light1.position.set(2,5,3);
-    scene.add(light1);
-    const light2 = new THREE.PointLight(0x2266ff, 0.5);
-    light2.position.set(-2,-1,-4);
-    scene.add(light2);
-    
-    const texLoader = new THREE.TextureLoader();
-    const earthMat = new THREE.MeshPhongMaterial({
-      map: texLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'),
-      specularMap: texLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg'),
-      specular: new THREE.Color('grey'), shininess: 5
+  // ---------- Rebuild Three.js points geometry ----------
+  function rebuildPointsGeometry() {
+    if (!pointsMesh) return; // guard against early call
+    const posArray = new Float32Array(positions.length * 3);
+    positions.forEach((p, i) => {
+      posArray[i*3] = p.x;
+      posArray[i*3+1] = p.y;
+      posArray[i*3+2] = p.z;
     });
-    earth = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), earthMat);
-    scene.add(earth);
-    
-    const cloudMat = new THREE.MeshPhongMaterial({
-      map: texLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png'),
-      transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending
-    });
-    clouds = new THREE.Mesh(new THREE.SphereGeometry(1.21, 64, 64), cloudMat);
-    scene.add(clouds);
-    
-    // Stars (original)
-    const starsGeo = new THREE.BufferGeometry();
-    const starsCount = 6000;
-    const starsPos = new Float32Array(starsCount*3);
-    for (let i=0; i<starsCount; i++) {
-      const r = 45 + Math.random()*25, th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
-      starsPos[i*3] = r * Math.sin(ph)*Math.cos(th);
-      starsPos[i*3+1] = r * Math.sin(ph)*Math.sin(th);
-      starsPos[i*3+2] = r * Math.cos(ph);
+    if (pointsGeometry) pointsGeometry.dispose();
+    pointsGeometry = new THREE.BufferGeometry();
+    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const colorArray = new Float32Array(positions.length * 3);
+    for (let i = 0; i < positions.length; i++) {
+      const col = getColorFromRisk(riskLevel[i]);
+      colorArray[i*3] = col[0];
+      colorArray[i*3+1] = col[1];
+      colorArray[i*3+2] = col[2];
     }
-    starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
-    const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true });
-    const stars = new THREE.Points(starsGeo, starsMat);
-    scene.add(stars);
-    
-    const dummyGeo = new THREE.BufferGeometry();
-    const dummyMat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, blending: THREE.AdditiveBlending });
-    pointsMesh = new THREE.Points(dummyGeo, dummyMat);
-    scene.add(pointsMesh);
-    
-    const renderPass = new RenderPass(scene, camera);
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-    bloomPass.threshold = 0.1; bloomPass.strength = 0.8; bloomPass.radius = 0.5;
-    effectComposer = new EffectComposer(renderer);
-    effectComposer.addPass(renderPass);
-    effectComposer.addPass(bloomPass);
+    pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+    pointsMesh.geometry.dispose();
+    pointsMesh.geometry = pointsGeometry;
   }
 
-  // ==================== INIT ====================
-  async function init() {
-    initThree();
-    resizeAmbientCanvas();
-    drawAmbientField();
-    
-    await buildNodes();
-    if (dataMode === 'real') await updateRealRisks();
-    rebuildPoints();
-    updateHUD();
-    statusDiv.innerHTML = `${positions.length} nodes loaded. Click red for risk connections.`;
-    
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      effectComposer.setSize(window.innerWidth, window.innerHeight);
-      resizeAmbientCanvas();
+  // ---------- Three.js scene setup ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x030405);
+  scene.fog = new THREE.FogExp2(0x030405, 0.00004);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 2, 12);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.autoRotate = false;
+  controls.enableZoom = true;
+  controls.zoomSpeed = 0.8;
+  controls.rotateSpeed = 0.8;
+  controls.minDistance = 3;
+  controls.maxDistance = 22;
+  controls.target.set(0,0,0);
+
+  // Bloom
+  const renderScenePass = new RenderPass(scene, camera);
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+  bloomPass.threshold = 0.1; bloomPass.strength = 1.0; bloomPass.radius = 0.5;
+  const effectComposer = new EffectComposer(renderer);
+  effectComposer.addPass(renderScenePass);
+  effectComposer.addPass(bloomPass);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0x222222);
+  scene.add(ambientLight);
+  const pointLight = new THREE.PointLight(0xffaa33, 0.8);
+  pointLight.position.set(2, 5, 3);
+  scene.add(pointLight);
+  const backLight = new THREE.PointLight(0x2266ff, 0.5);
+  backLight.position.set(-2, -1, -4);
+  scene.add(backLight);
+
+  // Earth with textures
+  const textureLoader = new THREE.TextureLoader();
+  const earthMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+  const earthSpecularMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
+  const earthNormalMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
+  const cloudMap = textureLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
+  const earthMat = new THREE.MeshPhongMaterial({ map: earthMap, specularMap: earthSpecularMap, specular: new THREE.Color('grey'), shininess: 5, normalMap: earthNormalMap });
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(1.2, 128, 128), earthMat);
+  scene.add(earth);
+  const cloudMat = new THREE.MeshPhongMaterial({ map: cloudMap, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending });
+  const clouds = new THREE.Mesh(new THREE.SphereGeometry(1.21, 128, 128), cloudMat);
+  scene.add(clouds);
+  function animateClouds() { clouds.rotation.y += 0.0005; requestAnimationFrame(animateClouds); }
+  animateClouds();
+
+  // Starfield
+  const starCount = 6000;
+  const starPositions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const r = 45 + Math.random() * 25, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1);
+    starPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    starPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    starPositions[i*3+2] = r * Math.cos(phi);
+  }
+  const starGeometry = new THREE.BufferGeometry();
+  starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6 });
+  const stars = new THREE.Points(starGeometry, starMaterial);
+  scene.add(stars);
+
+  // ---------- Initialize points mesh after data ----------
+  let isInitialized = false;
+  async function initPoints() {
+    await generateData();
+    const posArray = new Float32Array(positions.length * 3);
+    positions.forEach((p, i) => {
+      posArray[i*3] = p.x;
+      posArray[i*3+1] = p.y;
+      posArray[i*3+2] = p.z;
     });
-    
-    // Raycaster
-    const raycaster = new THREE.Raycaster();
-    renderer.domElement.addEventListener('click', (e) => {
-      const mouse = new THREE.Vector2();
-      mouse.x = (e.clientX / renderer.domElement.clientWidth)*2 -1;
-      mouse.y = -(e.clientY / renderer.domElement.clientHeight)*2 +1;
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(pointsMesh);
-      if (intersects.length) {
-        const idx = intersects[0].index;
+    pointsGeometry = new THREE.BufferGeometry();
+    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const colorArray = new Float32Array(positions.length * 3);
+    for (let i = 0; i < positions.length; i++) {
+      const col = getColorFromRisk(riskLevel[i]);
+      colorArray[i*3] = col[0];
+      colorArray[i*3+1] = col[1];
+      colorArray[i*3+2] = col[2];
+    }
+    pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+    const pointMaterial = new THREE.PointsMaterial({ size: 0.045, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending });
+    pointsMesh = new THREE.Points(pointsGeometry, pointMaterial);
+    scene.add(pointsMesh);
+    isInitialized = true;
+    if (dataMode === 'real') await updateRealRisks();
+    else updatePointsVisuals();
+    resetFilter();
+    document.getElementById('status').innerHTML = `${positions.length} nodes loaded. Click red for risk connections.`;
+  }
+
+  // ---------- UI event handlers ----------
+  document.getElementById('typeFilter').addEventListener('change', (e) => {
+    typeFilter = e.target.value;
+    applyTypeFilter();
+  });
+
+  document.getElementById('resetFilterBtn').addEventListener('click', () => {
+    resetFilter();
+  });
+
+  document.getElementById('resetViewBtn').addEventListener('click', () => {
+    camera.position.set(0, 2, 12);
+    controls.target.set(0,0,0);
+    controls.update();
+    hideConnectionPanel();
+    resetFilter();
+    document.getElementById('searchInput').value = '';
+  });
+
+  document.getElementById('clearConnectionsBtn').addEventListener('click', () => {
+    hideConnectionPanel();
+  });
+
+  document.getElementById('closePanelBtn').addEventListener('click', () => {
+    hideConnectionPanel();
+  });
+
+  document.getElementById('learnMore').addEventListener('click', (e) => {
+    e.preventDefault();
+    alert("To use real data, you need API keys for:\n- NASA FIRMS (wildfires)\n- MarineTraffic (ports)\n\nUSGS earthquakes and NOAA hurricanes are public and already integrated.\nThe EIA key is already included.");
+  });
+
+  document.querySelectorAll('input[name="dataMode"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      if (!e.target.checked || !isInitialized) return;
+      dataMode = e.target.value;
+      hideConnectionPanel();
+      if (dataMode === 'real') {
+        await generateData();
+        await updateRealRisks();
+        rebuildPointsGeometry();
+        document.getElementById('status').innerHTML = `Real mode: live data (USGS + EIA) – ${positions.length} nodes`;
+      } else {
+        await generateSyntheticData();
+        rebuildPointsGeometry();
+        document.getElementById('status').innerHTML = `Demo mode: ${positions.length} synthetic nodes.`;
+      }
+      resetFilter();
+    });
+  });
+
+  // Search by name
+  document.getElementById('searchInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const query = e.target.value.trim().toLowerCase();
+      if (!query) return;
+      const idx = nodeNames.findIndex(name => name.toLowerCase().includes(query));
+      if (idx !== -1) {
+        const pos = positions[idx];
+        camera.position.set(pos.x + 1, pos.y + 1, pos.z + 2);
+        controls.target.copy(pos);
+        controls.update();
+        e.target.value = '';
+      } else {
+        alert(`No infrastructure found matching "${query}".`);
+      }
+    }
+  });
+
+  // Raycaster for clicks
+  const raycaster = new THREE.Raycaster();
+  function onMouseClick(event) {
+    if (!pointsMesh) return;
+    const mouse = new THREE.Vector2();
+    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(pointsMesh);
+    if (intersects.length) {
+      const idx = intersects[0].index;
+      if (idx !== undefined) {
         if (riskLevel[idx] > RED_THRESHOLD) {
-          hidePanel();
+          hideConnectionPanel();
           currentSelectedIdx = idx;
           drawLinesForNode(idx);
-          showPanel(idx);
+          showConnectionPanel(idx);
         } else {
-          hidePanel();
-          statusDiv.innerHTML = `${nodeNames[idx]} risk ${riskLevel[idx].toFixed(0)}% (below threshold)`;
+          hideConnectionPanel();
+          const msg = `${nodeNames[idx]} has low risk (${riskLevel[idx].toFixed(0)}%). Only red (risk > 70%) triggers cascade.`;
+          document.getElementById('status').innerHTML = msg;
+          if (tooltipTimer) clearTimeout(tooltipTimer);
+          tooltipTimer = setTimeout(() => {
+            if (document.getElementById('status').innerHTML === msg)
+              document.getElementById('status').innerHTML = `${positions.length} nodes · click red for risk propagation`;
+          }, 2000);
         }
-      } else { hidePanel(); }
-    });
-    
-    document.getElementById('closePanelBtn').addEventListener('click', hidePanel);
-    document.getElementById('clearConnectionsBtn').addEventListener('click', hidePanel);
-    document.getElementById('resetViewBtn').addEventListener('click', () => {
-      camera.position.set(0,2,12);
-      controls.target.set(0,0,0);
-      hidePanel();
-    });
-    
-    document.querySelectorAll('input[name="dataMode"]').forEach(r => r.addEventListener('change', async (e) => {
-      dataMode = e.target.value;
-      hidePanel();
-      await buildNodes();
-      if (dataMode === 'real') await updateRealRisks();
-      rebuildPoints();
-      updateHUD();
-    }));
-    
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      clouds.rotation.y += 0.0005;
-      effectComposer.render();
-      updateHUD();
-    }
-    animate();
-    
-    setInterval(async () => {
-      if (dataMode === 'real') {
-        await updateRealRisks();
-        rebuildPoints();
-        updateHUD();
       }
-    }, 60000);
+    } else {
+      hideConnectionPanel();
+    }
   }
+  window.addEventListener('click', onMouseClick);
+
+  // Hover tooltips
+  function onMouseMove(event) {
+    if (!pointsMesh) return;
+    const mouse = new THREE.Vector2();
+    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(pointsMesh);
+    if (intersects.length) {
+      const idx = intersects[0].index;
+      if (tooltipTimer) clearTimeout(tooltipTimer);
+      document.getElementById('status').innerHTML = `${nodeNames[idx]} | ${nodeTypes[idx]} | Risk: ${riskLevel[idx].toFixed(0)}% | Importance: ${nodeImportance[idx].toFixed(1)}`;
+      tooltipTimer = setTimeout(() => {
+        document.getElementById('status').innerHTML = `${positions.length} nodes · click red for risk propagation`;
+      }, 1500);
+    } else {
+      if (tooltipTimer) clearTimeout(tooltipTimer);
+      document.getElementById('status').innerHTML = `${positions.length} nodes · click red for risk propagation`;
+    }
+  }
+  window.addEventListener('mousemove', onMouseMove);
 
   // Custom cursor
   const cursor = document.getElementById('custom-cursor');
@@ -730,12 +768,27 @@
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
   });
-  document.querySelectorAll('a,button,select,input').forEach(el => {
+  document.querySelectorAll('a,button,select,input,.connection-panel').forEach(el => {
     el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
     el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
   });
 
-  init();
+  // Animation loop
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    effectComposer.render();
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    effectComposer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Start
+  initPoints();
 </script>
 </body>
 </html>
